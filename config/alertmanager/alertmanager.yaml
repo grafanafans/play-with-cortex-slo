@@ -1,0 +1,10 @@
+templates:
+  - 'default_templates'
+route:
+  receiver: echo
+  group_by: [alertname]
+receivers:
+  - name: echo
+    webhook_configs:
+    - send_resolved: true
+      url: 'http://echo:9094/v1/alerts'

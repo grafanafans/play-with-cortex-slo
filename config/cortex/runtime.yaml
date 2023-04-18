@@ -1,0 +1,6 @@
+# This file can be used to set overrides or other runtime config.
+ingester_stream_chunks_when_using_blocks: true
+
+overrides:
+  demo:
+    ingestion_rate: 2500000

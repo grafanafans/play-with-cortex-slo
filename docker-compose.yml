@@ -1,0 +1,136 @@
+version: '3.4'
+services:
+  consul:
+    image: consul
+    command: [ "agent", "-dev" ,"-client=0.0.0.0", "-log-level=info" ]
+    ports:
+      - 8500:8500
+
+  minio:
+    image: minio/minio
+    entrypoint: [""]
+    command: ["sh", "-c", "mkdir -p /data/cortex && minio server /data --console-address=:9002"]
+    environment:
+      - MINIO_ROOT_USER=cortex
+      - MINIO_ROOT_PASSWORD=supersecret
+    ports:
+      - 9000:9000
+      - 9002:9002
+    volumes:
+      - ./data/minio:/data
+
+  prometheus-1:
+    image: prom/prometheus:v2.39.1
+    command: ["--config.file=/etc/prometheus/prometheus.yaml", "--enable-feature=expand-external-labels", "--enable-feature=agent", "--log.level=debug"]
+    environment:
+      PODNAME: prometheus-1
+    volumes:
+      - ./config/prometheus:/etc/prometheus
+      - data-prometheus-1:/prometheus
+    ports:
+      - 9090:9090
+  
+  prometheus-2:
+    image: prom/prometheus:v2.39.1
+    command: ["--config.file=/etc/prometheus/prometheus.yaml", "--enable-feature=expand-external-labels", "--enable-feature=agent", "--log.level=debug"]
+    environment:
+      PODNAME: prometheus-2
+    volumes:
+      - ./config/prometheus:/etc/prometheus
+      - data-prometheus-2:/prometheus
+    ports:
+      - 9091:9090
+
+  grafana:
+    image: grafana/grafana:latest
+    pull_policy: always
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_USERS_DEFAULT_THEME=light
+      - GF_LOG_MODE=console
+      - GF_LOG_LEVEL=critical
+    volumes:
+      - ./config/grafana/provisioning-dashboards.yaml:/etc/grafana/provisioning/dashboards/provisioning-dashboards.yaml:ro
+      - ./config/grafana/provisioning-datasources.yaml:/etc/grafana/provisioning/datasources/provisioning-datasources.yaml:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - 3000:3000
+    depends_on:
+      - load-balancer
+
+  load-balancer:
+    image: nginx:1.23.1
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - cortex-1
+      - cortex-2
+      - cortex-3
+    ports:
+      - 8080:80
+
+  cortex-1:
+    image: cortexproject/cortex:v1.14.1
+    hostname: cortex-1
+    depends_on:
+      - minio
+      - consul
+    command: ["-config.file=/cortex/config/cortex.yaml", "-log.level=debug"]
+    ports:
+      - 8001:80
+    volumes:
+      - ./config/cortex:/cortex/config
+      - ./data/data-cortex-1:/data
+
+  cortex-2:
+    image: cortexproject/cortex:v1.14.1
+    hostname: cortex-2
+    command: ["-config.file=/cortex/config/cortex.yaml", "-log.level=debug"]
+    depends_on:
+      - minio
+      - consul
+    ports:
+      - 8002:80
+    volumes:
+      - ./config/cortex:/cortex/config
+      - ./data/data-cortex-2:/data
+  
+  cortex-3:
+    image: cortexproject/cortex:v1.14.1
+    hostname: cortex-3
+    command: ["-config.file=/cortex/config/cortex.yaml", "-log.level=debug"]
+    depends_on:
+      - minio
+      - consul
+    ports:
+      - 8003:80
+    volumes:
+      - ./config/cortex:/cortex/config
+      - ./data/data-cortex-3:/data
+      
+  echo:
+    image: echo:v0.1.0
+    ports:
+      - 9094:9094
+  
+  cortex-slo:
+    image: songjiayang/cortex-slo:0.0.1
+    restart: always
+    ports:
+      - 6666:6666
+    depends_on:
+      - load-balancer
+      - minio
+    volumes:
+      - ./config/cortex/slo.yaml:/app/config/config.yaml
+  
+  myservice:
+   image: songjiayang/sloth-myservice:0.0.1
+   restart: always
+   ports:
+    - 8081:8080
+
+volumes:
+  data-prometheus-1:
+  data-prometheus-2:
