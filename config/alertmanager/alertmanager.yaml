@@ -7,4 +7,4 @@ receivers:
   - name: echo
     webhook_configs:
     - send_resolved: true
-      url: 'http://echo:9094/v1/alerts'
+      url: 'http://echo-recevier:9094/v1/alerts'

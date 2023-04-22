@@ -108,11 +108,6 @@ services:
     volumes:
       - ./config/cortex:/cortex/config
       - ./data/data-cortex-3:/data
-      
-  echo:
-    image: echo:v0.1.0
-    ports:
-      - 9094:9094
   
   cortex-slo:
     image: songjiayang/cortex-slo:0.0.1
@@ -124,6 +119,11 @@ services:
       - minio
     volumes:
       - ./config/cortex/slo.yaml:/app/config/config.yaml
+      
+  echo-recevier:
+    image: songjiayang/echo:0.0.1
+    ports:
+      - 9094:9094
   
   myservice:
    image: songjiayang/sloth-myservice:0.0.1
